@@ -9,11 +9,9 @@ import { useNavigate } from "react-router-dom";
 import MySupClient from "../SupabaseClient";
 import { E164Number } from "libphonenumber-js/types.cjs";
 import toast from "react-hot-toast";
-import { set } from "react-ga";
 
 const CreateAccount = () => {
   const navigate = useNavigate();
-
   const [supabase] = useState(() => MySupClient());
   const [email, setEmail] = useState("");
   const [pass1, setPass1] = useState("");
@@ -21,201 +19,212 @@ const CreateAccount = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [passError, setPassError] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passError, setPassError] = useState("");
   const [mobile, setMobile] = useState<E164Number>("");
+  const [firstNameError, setFirstNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState("");
 
+
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Password validation function (adjust as needed)
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 6) {
+      return "Password must be at least 6 characters long";
+    }
+    if (!/[A-Z]/.test(password)) {
+      return "Password must contain at least one uppercase letter";
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return "Password must contain at least one special character";
+    }
+    if (/\s/.test(password)) {
+      return "Password should not contain spaces";
+    }
+    return null; // Password is valid
+  };
 
   async function userSignUp() {
-    if (email === "" || pass1 === "" || pass2 === "" || firstName === "" || lastName === "") {
-      // alert("Please fill all the fields");
-      toast.error("Please fill all the fields");
+    // Reset errors
+    setEmailError("");
+    setPassError("");
+    setFirstNameError("");
+    setLastNameError("");
+    setTermsError("");
+
+
+    if (firstName.trim() === "") {
+      setFirstNameError("First name is required");
       return;
     }
+    if (lastName.trim() === "") {
+      setLastNameError("Last name is required");
+      return;
+    }
+
+    // Perform validation
+    if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
+
+    const passwordError = validatePassword(pass1);
+    if (passwordError) {
+      setPassError(passwordError);
+      return;
+    }
+
     if (pass1 !== pass2) {
-      // alert("Passwords do not match");
-      toast.error("Passwords do not match");
+      setPassError("Passwords do not match");
       return;
     }
-    if (pass1 === pass2) {
-      setLoading(true);
-      const data = await supabase.auth.signUp({
-        email: email,
-        password: pass1,
-      });
-      if (data.error) {
-        alert(data.error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (data.data.user?.aud === "authenticated") {
-        // set User name
-        const data = await supabase.auth.updateUser({
-          data: { fullName: firstName + " " + lastName, phone: mobile },
-        });
-        console.log("username", data);
-
-        toast.success("Account Activated, Please Log In.");
-        // toast.success("Your email has been verified");
-        navigate("/login");
-      }
-
-      setLoading(false);
+    if (!termsAccepted) {
+      setTermsError("You must accept the terms and conditions");
+      return;
     }
+
+    setLoading(true);
+    const data = await supabase.auth.signUp({
+      email: email,
+      password: pass1,
+    });
+
+    if (data.error) {
+      alert(data.error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data.data.user?.aud === "authenticated") {
+      // Set User name
+      const userData = await supabase.auth.updateUser({
+        data: { fullName: `${firstName} ${lastName}`, phone: mobile },
+      });
+      console.log("username", userData);
+      toast.success("Account Activated, Please Log In.");
+      navigate("/login");
+    }
+
+    setLoading(false);
   }
+
   async function checkLogin() {
     const session = await supabase.auth.getSession();
     console.log(session);
     if (session.data.session !== null) {
       var inTable = await supabase
-        .from("DriverDetails")
-        .select("*")
-        .eq("userId", session.data.session.user.id)
-        .then((data) => {
-          console.log(data);
-          if (data.data!.length === 0) {
-            navigate("/driverRegistration");
-          } else {
-            navigate("/driverDashboard");
-          }
-        });
+          .from("DriverDetails")
+          .select("*")
+          .eq("userId", session.data.session.user.id)
+          .then((data) => {
+            console.log(data);
+            if (data.data!.length === 0) {
+              navigate("/driverRegistration");
+            } else {
+              navigate("/driverDashboard");
+            }
+          });
     }
     return;
   }
+
   useEffect(() => {
     checkLogin();
   }, []);
 
   return (
-    loading ?
-      <>
-        <div>
-          <svg xmlns="http:www.w3.org/2000/svg" viewBox="0 0 200 200">
-            <circle
-              fill="%23FF156D"
-              stroke="%23FF156D"
-              stroke-width="15"
-              r="15"
-              cx="40"
-              cy="65"
-            >
-              <animate
-                attributeName="cy"
-                calcMode="spline"
-                dur="2"
-                values="65;135;65;"
-                keySplines=".5 0 .5 1;.5 0 .5 1"
-                repeatCount="indefinite"
-                begin="-.4"
-              ></animate>
-            </circle>
-            <circle
-              fill="%23FF156D"
-              stroke="%23FF156D"
-              stroke-width="15"
-              r="15"
-              cx="100"
-              cy="65"
-            >
-              <animate
-                attributeName="cy"
-                calcMode="spline"
-                dur="2"
-                values="65;135;65;"
-                keySplines=".5 0 .5 1;.5 0 .5 1"
-                repeatCount="indefinite"
-                begin="-.2"
-              ></animate>
-            </circle>
-            <circle
-              fill="%23FF156D"
-              stroke="%23FF156D"
-              stroke-width="15"
-              r="15"
-              cx="160"
-              cy="65"
-            >
-              <animate
-                attributeName="cy"
-                calcMode="spline"
-                dur="2"
-                values="65;135;65;"
-                keySplines=".5 0 .5 1;.5 0 .5 1"
-                repeatCount="indefinite"
-                begin="0"
-              ></animate>
-            </circle>
-          </svg>
-          '
-        </div>
-        Loading...
-      </> : <LoginPageHeader>
-        <div className={style.LoginSection}>
-          <div
-            style={{ fontSize: "28px", marginBottom: "2%", textAlign: "center" }}
-          >
-            <b>Create your account</b>
-          </div>
-          <div style={{ display: "flex", gap: "2%" }}>
-            <TextField onChange={(text) => {
-              setFirstName(text.target.value);
-
-            }} placeholder="First name" variant="standard" />
-            <TextField onChange={(text) => {
-              setLastName(text.target.value);
-
-
-            }} placeholder="Last name" variant="standard" />
-          </div>
-          <div>
-            <TextField onChange={(text) => {
-              setEmail(text.target.value);
-            }} placeholder="Email" variant="standard" />
-          </div>
-          <div>
-            <TextField onChange={(text) => {
-              setPass1(text.target.value);
-
-            }} placeholder="Enter password" variant="standard" />
-          </div>
-          <div>
-            <TextField onChange={(text) => {
-              setPass2(text.target.value);
-            }} placeholder="Re enter password" variant="standard" />
-          </div>
-          <FormGroup>
-            <FormControlLabel control={<Checkbox />} label={
-              <>
-                I agree to the{' '}
-                <a href="/termsAndConditions" style={{ textDecoration: "none" }}>
-                  terms and conditions
-                </a>
-              </>
-            } />
-          </FormGroup>
-          {/* <span style={{ display: "flex", marginTop: "3%",position:"relative" }}>
-<input type="checkbox" style={{position:"absolute",left:"0" }} />
-</span> */}
-          <div style={{ display: "flex", justifyContent: "end" }}>
-            <button
-              onClick={() => {
-                userSignUp();
-              }}
-              style={{
-                backgroundColor: "#D69F29",
-                color: "white",
-                padding: "5px 50px",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "20px",
-                cursor: "pointer"
-              }}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      </LoginPageHeader>
+      loading ? (
+          <>
+            <div>Loading...</div>
+          </>
+      ) : (
+          <LoginPageHeader>
+            <div className={style.LoginSection}>
+              <div style={{ fontSize: "28px", marginBottom: "2%", textAlign: "center" }}>
+                <b>Create your account</b>
+              </div>
+              <div style={{ display: "flex", gap: "2%" }}>
+                <TextField
+                    onChange={(text) => setFirstName(text.target.value)}
+                    placeholder="First name"
+                    variant="standard"
+                    error={!!firstNameError}
+                    helperText={firstNameError}
+                />
+                <TextField
+                    onChange={(text) => setLastName(text.target.value)}
+                    placeholder="Last name"
+                    variant="standard"
+                    error={!!lastNameError}
+                    helperText={lastNameError}
+                />
+              </div>
+              <div>
+                <TextField
+                    onChange={(text) => setEmail(text.target.value)}
+                    placeholder="Email"
+                    variant="standard"
+                    error={!!emailError}
+                    helperText={emailError}
+                />
+              </div>
+              <div>
+                <TextField
+                    onChange={(text) => setPass1(text.target.value)}
+                    placeholder="Enter password"
+                    variant="standard"
+                    error={!!passError}
+                    helperText={passError}
+                />
+              </div>
+              <div>
+                <TextField
+                    onChange={(text) => setPass2(text.target.value)}
+                    placeholder="Re-enter password"
+                    variant="standard"
+                    error={!!passError}
+                    helperText={passError}
+                />
+              </div>
+              <FormGroup>
+                <FormControlLabel
+                    control={<Checkbox checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} />}
+                    label={
+                      <>
+                        I agree to the{' '}
+                        <a href="/termsAndConditions" style={{ textDecoration: "none" }}>
+                          terms and conditions
+                        </a>
+                      </>
+                    } />
+                {termsError && <div style={{ color: "red" }}>{termsError}</div>}
+              </FormGroup>
+              <div style={{ display: "flex", justifyContent: "end" }}>
+                <button
+                    onClick={userSignUp}
+                    style={{
+                      backgroundColor: "#D69F29",
+                      color: "white",
+                      padding: "5px 50px",
+                      border: "none",
+                      borderRadius: "4px",
+                      fontSize: "20px",
+                      cursor: "pointer"
+                    }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </LoginPageHeader>
+      )
   );
 };
 
